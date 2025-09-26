@@ -561,7 +561,7 @@ export default function App() {
         try {
             // This is where you will paste your Firebase configuration object.
             // It's checked against 'undefined' to prevent errors in development.
-            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+            const firebaseConfig = process.env.REACT_APP_FIREBASE_CONFIG ? JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG) : {};
             if (Object.keys(firebaseConfig).length === 0) {
                  console.warn("Firebase config not found. App will run in offline mode.");
                  setLoading(false);
