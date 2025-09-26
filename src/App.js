@@ -1,4 +1,3 @@
-// Forcing Vercel to sync with latest commit
 import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -7,6 +6,9 @@ import {
     signInWithEmailAndPassword, 
     onAuthStateChanged, 
     signOut,
+    // These are needed for the environment check, even if not explicitly called in the main flow
+    signInAnonymously,
+    signInWithCustomToken
 } from 'firebase/auth';
 import { 
     getFirestore, 
@@ -22,26 +24,25 @@ import {
 } from 'firebase/firestore';
 
 // --- Configuration ---
-// You can easily manage your subscription plans here.
 const SUBSCRIPTION_PLANS = {
     free: {
         name: 'Free',
         price: '$0',
         priceDescription: 'per month',
-        tokens: 5,
+        tokens: 10,
         features: [
-            '5 AI Generations/mo',
+            '10 AI Generations/mo',
             'Access to Basic Prompts',
             'Community Support'
         ],
     },
     pro: {
-        name: 'Pro',
-        price: '$29',
+        name: 'Creator',
+        price: '$19',
         priceDescription: 'per month',
-        tokens: 50,
+        tokens: 100,
         features: [
-            '50 AI Generations/mo',
+            '100 AI Generations/mo',
             'Access to All Prompts',
             'Saved Content Library',
             'Priority Email Support'
@@ -49,12 +50,12 @@ const SUBSCRIPTION_PLANS = {
     },
     team: {
         name: 'Team',
-        price: '$79',
+        price: '$49',
         priceDescription: 'per month',
-        tokens: 200,
+        tokens: 300,
         features: [
-            '200 AI Generations/mo',
-            'Up to 5 Team Members',
+            '300 AI Generations/mo',
+            'Up to 3 Team Members',
             'Saved Content Library',
             'Dedicated Account Manager'
         ],
@@ -86,13 +87,21 @@ const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w
 const CopyIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>;
 
 
+// --- Accessibility Component ---
+const SkipToContentLink = ({ targetId }) => (
+    <a href={`#${targetId}`} className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 bg-indigo-600 text-white py-2 px-4 rounded-lg">
+        Skip to main content
+    </a>
+);
+
+
 // --- Landing Page Components ---
 const LandingHeader = ({ setPage }) => {
     const [isOpen, setIsOpen] = useState(false);
     return (
         <header className="bg-slate-900/70 backdrop-blur-lg fixed w-full z-30">
             <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-                <a href="#" onClick={(e) => { e.preventDefault(); setPage('home'); }} className="flex items-center space-x-3 cursor-pointer">
+                <a href="#home" onClick={(e) => { e.preventDefault(); setPage('home'); }} className="flex items-center space-x-3 cursor-pointer">
                     <Logo />
                     <span className="text-xl font-bold text-white">MentalHealthContent.ai</span>
                 </a>
@@ -172,7 +181,7 @@ const PricingSection = ({ setPage }) => (
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
                 {Object.values(SUBSCRIPTION_PLANS).map((plan) => (
-                    <div key={plan.name} className={`bg-slate-800 rounded-lg p-8 border ${plan.name === 'Pro' ? 'border-indigo-500' : 'border-slate-700'} flex flex-col`}>
+                    <div key={plan.name} className={`bg-slate-800 rounded-lg p-8 border ${plan.name === 'Creator' ? 'border-indigo-500' : 'border-slate-700'} flex flex-col`}>
                         <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
                         <div className="mb-6">
                             <span className="text-4xl font-extrabold text-white">{plan.price}</span>
@@ -186,7 +195,7 @@ const PricingSection = ({ setPage }) => (
                                 </li>
                             ))}
                         </ul>
-                        <button onClick={() => setPage('signup')} className={`w-full py-3 px-6 rounded-lg font-semibold transition-colors ${plan.name === 'Pro' ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}>
+                        <button onClick={() => setPage('signup')} className={`w-full py-3 px-6 rounded-lg font-semibold transition-colors ${plan.name === 'Creator' ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}>
                             Get Started
                         </button>
                     </div>
@@ -197,13 +206,14 @@ const PricingSection = ({ setPage }) => (
 );
 
 const FaqSection = () => {
+    const [open, setOpen] = useState(null);
     const faqs = [
         { q: "Who is this service for?", a: "MentalHealthContent.ai is designed for licensed therapists, certified coaches, mental health influencers, and students in the mental health field who create content online." },
         { q: "Is the generated content clinically sound?", a: "Our AI provides content ideas and drafts based on general mental health principles. It is NOT a substitute for professional clinical advice. You are responsible for reviewing, editing, and ensuring all content aligns with your professional expertise and ethical guidelines." },
         { q: "Can I cancel my subscription anytime?", a: "Yes, you can cancel your subscription at any time from your billing page. You will retain access until the end of your current billing period." },
         { q: "What is a 'generation'?", a: "One 'generation' refers to a single request to the AI to create a piece of content. Your monthly token limit determines how many generations you can perform." }
     ];
-    const [open, setOpen] = useState(null);
+
     return (
         <section id="faq" className="py-20 bg-slate-800">
             <div className="container mx-auto px-6 max-w-3xl">
@@ -240,9 +250,9 @@ const AuthWrapper = ({ title, children, setPage, switchText, switchPage }) => (
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-4">
         <div className="max-w-md w-full mx-auto">
             <div className="text-center mb-8">
-                <a href="#" onClick={(e) => { e.preventDefault(); setPage('home'); }} className="inline-block">
+                <button onClick={() => setPage('home')} className="inline-block">
                     <Logo />
-                </a>
+                </button>
                 <h2 className="mt-6 text-2xl font-bold tracking-tight text-white">{title}</h2>
             </div>
             <div className="bg-slate-800 p-8 rounded-lg shadow-lg border border-slate-700">
@@ -328,7 +338,7 @@ const DashboardLayout = ({ children, handleLogout, setDashboardPage, activePage,
     ];
     return (
         <div className="flex h-screen bg-slate-900 text-white">
-            <aside className="w-64 bg-slate-800 p-6 flex-shrink-0 flex flex-col">
+            <aside className="w-64 bg-slate-800 p-6 flex-shrink-0 flex flex-col border-r border-slate-700">
                 <button onClick={() => setDashboardPage('dashboard')} className="flex items-center space-x-3 mb-10 text-left">
                     <Logo />
                     <span className="text-xl font-bold">MHC.ai</span>
@@ -357,15 +367,23 @@ const DashboardLayout = ({ children, handleLogout, setDashboardPage, activePage,
                     </button>
                 </div>
             </aside>
-            <main className="flex-1 overflow-y-auto p-8">
-                {children}
-            </main>
+            <div className="flex-1 flex flex-col">
+                <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-8 py-4 flex justify-between items-center">
+                     <h1 className="text-xl font-bold capitalize">{activePage}</h1>
+                     {/* Add other header elements here if needed */}
+                </header>
+                <main id="main-content" className="flex-1 overflow-y-auto p-8">
+                    {children}
+                </main>
+            </div>
         </div>
     );
 };
 
 const callGeminiAPI = async (userQuery, systemPrompt = null, schema = null) => {
-    const apiKey = ""; // Canvas provides this
+    // In a real environment like Google's Canvas, the API key is provided automatically.
+    // For local development or Codespaces, you might need to set this up as an environment variable.
+    const apiKey = ""; 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
     const payload = {
@@ -429,7 +447,7 @@ const GeneratorPage = ({ userData, db, auth }) => {
         setError('');
         try {
             await apiCallFn();
-            if (shouldDecrementToken) {
+            if (shouldDecrementToken && auth.currentUser) {
                 const userRef = doc(db, 'users', auth.currentUser.uid);
                 await updateDoc(userRef, {
                     tokensUsedThisMonth: userData.tokensUsedThisMonth + 1
@@ -485,7 +503,7 @@ const GeneratorPage = ({ userData, db, auth }) => {
     });
     
     const handleSaveContent = () => handleAPICall(async () => {
-        if (!generatedContent) return;
+        if (!generatedContent || !auth.currentUser) return;
         setSaveSuccess(false);
         const savedContentRef = collection(db, 'users', auth.currentUser.uid, 'savedContent');
         await addDoc(savedContentRef, {
@@ -497,7 +515,7 @@ const GeneratorPage = ({ userData, db, auth }) => {
         });
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000); // Hide message after 3 seconds
-    }, false); // Set to false, so saving content doesn't use a token.
+    }, false);
 
     return (
         <div>
@@ -561,7 +579,7 @@ const GeneratorPage = ({ userData, db, auth }) => {
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold">Generated Content:</h2>
                      {generatedContent && !isLoading && (
-                        <button onClick={handleSaveContent} className={`flex items-center space-x-2 bg-slate-700 text-sm text-white py-1 px-3 rounded-lg hover:bg-slate-600 transition-colors ${saveSuccess ? 'bg-green-600' : ''}`}>
+                        <button onClick={handleSaveContent} disabled={!userData || userData.subscriptionPlan === 'free'} className="flex items-center space-x-2 bg-slate-700 text-sm text-white py-1 px-3 rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title={userData && userData.subscriptionPlan === 'free' ? "Upgrade to save content" : "Save content"}>
                             <SavedIcon />
                             <span>{saveSuccess ? 'Saved!' : 'Save Content'}</span>
                         </button>
@@ -632,10 +650,12 @@ const PlannerPage = ({ userData, db, auth }) => {
             const jsonString = await callGeminiAPI(userQuery, systemPrompt, schema);
             const parsedPlan = JSON.parse(jsonString);
             setPlan(parsedPlan.weekly_plan);
-            const userRef = doc(db, 'users', auth.currentUser.uid);
-            await updateDoc(userRef, {
-                tokensUsedThisMonth: userData.tokensUsedThisMonth + 1
-            });
+            if(auth.currentUser){
+                const userRef = doc(db, 'users', auth.currentUser.uid);
+                await updateDoc(userRef, {
+                    tokensUsedThisMonth: userData.tokensUsedThisMonth + 1
+                });
+            }
         } catch(err) {
             console.error("Error generating plan:", err);
             setError(`Failed to generate plan: ${err.message}`);
@@ -697,12 +717,18 @@ const SavedContentPage = ({ db, auth }) => {
             });
             setSavedContent(content);
             setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching saved content:", error);
+            setIsLoading(false);
         });
         return () => unsubscribe();
     }, [db, auth.currentUser]);
     
     const handleDelete = async (id) => {
-        if (window.confirm("Are you sure you want to delete this content?")) {
+        // In a real app, you would use a custom confirmation modal instead of window.confirm.
+        const isConfirmed = window.confirm("Are you sure you want to delete this content?");
+        if (isConfirmed) {
+            if(!auth.currentUser) return;
             const docRef = doc(db, 'users', auth.currentUser.uid, 'savedContent', id);
             await deleteDoc(docRef);
         }
@@ -723,7 +749,10 @@ const SavedContentPage = ({ db, auth }) => {
             <h1 className="text-3xl font-bold mb-2">Saved Content</h1>
             <p className="text-gray-400 mb-8">Your library of generated content.</p>
             {savedContent.length === 0 ? (
-                <p className="text-gray-400">You haven't saved any content yet.</p>
+                <div className="text-center py-10 bg-slate-800 rounded-lg">
+                    <p className="text-gray-400">You haven't saved any content yet.</p>
+                    <p className="text-gray-500 text-sm mt-2">Upgrade to a paid plan to unlock this feature.</p>
+                </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {savedContent.map(item => (
@@ -760,6 +789,7 @@ const AccountPage = ({ user }) => (
                 <label className="block text-sm font-medium text-gray-300">Email Address</label>
                 <p className="text-lg mt-1">{user?.email}</p>
             </div>
+            {/* Note: Password change requires a more complex flow (sendPasswordResetEmail) which is omitted for simplicity */}
             <button className="bg-slate-700 text-white p-3 rounded-lg hover:bg-slate-600 transition-colors">Change Password (coming soon)</button>
         </div>
     </div>
@@ -768,16 +798,9 @@ const AccountPage = ({ user }) => (
 const BillingPage = ({ userData }) => {
     const handleManageSubscription = () => {
         // **STRIPE INTEGRATION POINT**
-        // In a real application, you would not have a hardcoded link.
-        // You would make a call to a backend function (e.g., a Firebase Cloud Function)
-        // that creates a Stripe Customer Portal session for the logged-in user.
-        // This function would return a unique URL that you redirect the user to.
-        //
-        // Example Firebase Function call:
-        // const functionRef = httpsCallable(functions, 'createStripePortalLink');
-        // const { data } = await functionRef();
-        // window.location.href = data.url;
-        alert("This would redirect to your Stripe Customer Portal.");
+        // In a real application, this would call a backend function to create a
+        // Stripe Customer Portal session and then redirect the user to the returned URL.
+        alert("This would redirect to your Stripe Customer Portal to manage billing, invoices, and cancellations.");
     };
 
     return (
@@ -799,8 +822,8 @@ const BillingPage = ({ userData }) => {
             </div>
              <div className="mt-12">
                  <h2 className="text-2xl font-bold mb-6">Upgrade Your Plan</h2>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                     {Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     {Object.entries(SUBSCRIPTION_PLANS).filter(([key]) => key !== 'free').map(([key, plan]) => (
                         <div key={key} className={`bg-slate-800 rounded-lg p-8 border ${userData.subscriptionPlan === key ? 'border-indigo-500' : 'border-slate-700'} flex flex-col`}>
                             <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
                              <div className="mb-6">
@@ -832,6 +855,7 @@ const BillingPage = ({ userData }) => {
 
 
 // --- Main App Component ---
+/* global __firebase_config, __initial_auth_token */
 
 export default function App() {
     const [page, setPage] = useState('home'); // home, login, signup, dashboard
@@ -846,37 +870,50 @@ export default function App() {
     const [db, setDb] = useState(null);
     
     useEffect(() => {
-        try {
-            const firebaseConfig = process.env.REACT_APP_FIREBASE_CONFIG ? JSON.parse(process.env.REACT_APP_FIREBASE_CONFIG) : {};
-
-            if (Object.keys(firebaseConfig).length === 0) {
-                 console.warn("Firebase config not found. App will run in offline mode.");
-                 setLoading(false);
-                 return;
-            }
-            const app = initializeApp(firebaseConfig);
-            const authInstance = getAuth(app);
-            const dbInstance = getFirestore(app);
-            setAuth(authInstance);
-            setDb(dbInstance);
-
-            const unsubscribeAuth = onAuthStateChanged(authInstance, (currentUser) => {
-                setLoading(true);
-                if (currentUser) {
-                    setUser(currentUser);
-                    setPage('dashboard');
-                } else {
-                    setUser(null);
-                    setUserData(null);
-                    setPage('home');
+        const initializeFirebase = async () => {
+            try {
+                // Use the config provided by the environment, or fall back to the React env var.
+                const firebaseConfigStr = typeof __firebase_config !== 'undefined' 
+                    ? __firebase_config
+                    : process.env.REACT_APP_FIREBASE_CONFIG;
+                
+                if (!firebaseConfigStr) {
+                    console.warn("Firebase config not found. App will run in offline mode.");
+                    setLoading(false);
+                    return;
                 }
+
+                const firebaseConfig = JSON.parse(firebaseConfigStr);
+                const app = initializeApp(firebaseConfig);
+                const authInstance = getAuth(app);
+                const dbInstance = getFirestore(app);
+                setAuth(authInstance);
+                setDb(dbInstance);
+
+                // Handle authentication based on the environment
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                   await signInWithCustomToken(authInstance, __initial_auth_token);
+                }
+
+                const unsubscribeAuth = onAuthStateChanged(authInstance, (currentUser) => {
+                    setLoading(true); 
+                    if (currentUser) {
+                        setUser(currentUser);
+                    } else {
+                        setUser(null);
+                        setUserData(null);
+                        setPage('home');
+                        setLoading(false);
+                    }
+                });
+                return () => unsubscribeAuth();
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
                 setLoading(false);
-            });
-            return () => unsubscribeAuth();
-        } catch (error) {
-            console.error("Firebase initialization failed:", error);
-            setLoading(false);
-        }
+            }
+        };
+
+        initializeFirebase();
     }, []);
     
     useEffect(() => {
@@ -886,17 +923,24 @@ export default function App() {
             unsubscribeDb = onSnapshot(userRef, (docSnap) => {
                 if (docSnap.exists()) {
                     setUserData(docSnap.data());
+                    setPage('dashboard'); 
                 } else {
-                    console.log("User document not found, creating one.");
+                    console.log("User document not found, creating one for new sign-up.");
                     const initialUserData = {
                         email: user.email,
                         createdAt: new Date(),
                         subscriptionPlan: 'free',
                         tokensUsedThisMonth: 0,
                     };
-                    setDoc(userRef, initialUserData);
-                    setUserData(initialUserData);
+                    setDoc(userRef, initialUserData).then(() => {
+                        setUserData(initialUserData);
+                        setPage('dashboard');
+                    }).catch(console.error);
                 }
+                setLoading(false); 
+            }, (error) => {
+                console.error("Error in user data snapshot:", error);
+                setLoading(false);
             });
         }
         return () => {
@@ -906,18 +950,11 @@ export default function App() {
 
 
     const handleAuth = async (email, password, type) => {
-        if (!auth || !db) return "Authentication service not ready.";
+        if (!auth || !db) return "Authentication service not ready. Please check your connection and Firebase setup.";
         try {
             if (type === 'signup') {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const newUser = userCredential.user;
-                const userRef = doc(db, 'users', newUser.uid);
-                await setDoc(userRef, {
-                    email: newUser.email,
-                    createdAt: new Date(),
-                    subscriptionPlan: 'free',
-                    tokensUsedThisMonth: 0
-                });
+                await createUserWithEmailAndPassword(auth, email, password);
+                // The onSnapshot listener will handle document creation for the new user.
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
             }
@@ -949,14 +986,17 @@ export default function App() {
                 }
             };
             return (
-                <DashboardLayout 
-                    handleLogout={handleLogout} 
-                    setDashboardPage={setDashboardPage}
-                    activePage={dashboardPage}
-                    userData={userData}
-                >
-                    {dashboardContent()}
-                </DashboardLayout>
+                <>
+                    <SkipToContentLink targetId="main-content" />
+                    <DashboardLayout 
+                        handleLogout={handleLogout} 
+                        setDashboardPage={setDashboardPage}
+                        activePage={dashboardPage}
+                        userData={userData}
+                    >
+                        {dashboardContent()}
+                    </DashboardLayout>
+                </>
             );
         }
         
