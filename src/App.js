@@ -1,3 +1,4 @@
+// Forcing Vercel to sync with latest commit
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
